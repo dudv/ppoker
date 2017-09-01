@@ -1,4 +1,4 @@
-import { makeRequest } from './utils'
+import { makeRequest, emitMessage, onMessage } from './utils'
 
 export const CREATE_SESSION = 'CREATE_SESSION'
 
@@ -15,6 +15,17 @@ function request() {
 	return dispatch => {
 		dispatch(setLoadingState(true))
 		return makeRequest(...arguments)
+			.then(data => {
+				dispatch(setLoadingState(false))
+				return data
+			})
+	}
+}
+
+function emit() {
+	return dispatch => {
+		dispatch(setLoadingState(true))
+		return emitMessage(...arguments)
 			.then(data => {
 				dispatch(setLoadingState(false))
 				return data
@@ -61,8 +72,8 @@ function receiveVoteList(votes) {
 }
 
 export function vote(session, user, value) {
-	return dispatch => 
-		dispatch(request('/vote', null, {session, user, value}, 'post'))
+	return dispatch =>
+		dispatch(emit('vote', {session, user, value}))
 			.then(data => {
 				const message = data.error ?
 					`Voting failed` :
@@ -70,6 +81,13 @@ export function vote(session, user, value) {
 				dispatch(voted(user, value))
 				dispatch(setSnackbarState(true, message))
 			})
+}
+
+export function onVote() {
+	return dispatch =>
+		dispatch(() => {
+			onMessage('vote', data => dispatch(voted(data.user, data.value)))
+		})
 }
 
 function voted(user, value) {

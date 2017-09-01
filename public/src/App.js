@@ -10,10 +10,9 @@ import Snackbar from 'material-ui/Snackbar'
 import ActionLock from 'material-ui/svg-icons/action/lock';
 
 import { connect } from 'react-redux'
-import { createSession, joinSession, listVotes, vote, clearSession, setSnackbarState } from './store/actions'
+import { createSession, joinSession, listVotes, vote, onVote, clearSession, setSnackbarState } from './store/actions'
 
 import URL from 'url-parse'
-
 
 class App extends Component {
   constructor(props) {
@@ -21,21 +20,25 @@ class App extends Component {
 
     const url = new URL(document.location.href, true)
     this.state = {
-      sessionKey: url.query.session || null,
+      session: url.query.session || null,
       user: null,
       showVotes: false,
       currentVote: null
     }
   }
 
+  componentDidMount() {
+    this.props.onVote()
+  }
+
   clearSession = () => {
     this.setState({currentVote: null})
-    this.props.clearSession(this.state.sessionKey)
+    this.props.clearSession(this.state.session)
   }
 
   createSession = () => this.props.createSession(this.state.user)
 
-  joinSession = () => this.props.joinSession(this.state.sessionKey, this.state.user)
+  joinSession = () => this.props.joinSession(this.state.session, this.state.user)
 
   vote = (value) => {
     this.setState({currentVote: value})
@@ -47,7 +50,7 @@ class App extends Component {
     this.props.listVotes(this.props.session)
   }
 
-  setSessionKey = (event) => this.setState({sessionKey: event.target.value})
+  setSessionKey = (event) => this.setState({session: event.target.value})
   setUser = (event) => this.setState({user: event.target.value})
 
   render() {
@@ -75,7 +78,7 @@ class App extends Component {
       </li>)
 
     const fVotes = this.props.votes.filter(v => v.value)
-    const voteMap = fVotes.map(v => v.value).reduce((agg, v) => ((agg[v] = (agg[v] || 0) + 1), agg), {})
+    const voteMap = fVotes.map(v => v.value).reduce((agg, v) => ((agg[v] = (agg[v] || 0) + 1), agg), {}) // eslint-disable-line no-sequences
     const results = [
       {label: 'Average:', value: fVotes.reduce((sum, v) => sum += v.value, 0) / fVotes.length},
       ...Object.keys(voteMap).sort((a, b) => +a - +b).map(k => ({label: `Points ${k}:`, value: `${voteMap[k]} votes`}))
@@ -93,7 +96,7 @@ class App extends Component {
               <TextField hintText="user" style={{width: '100px'}} onBlur={this.setUser}/>
             </ToolbarGroup>
             <ToolbarGroup lastChild={true}>
-              {this.state.sessionKey ? null : <TextField hintText="session" style={{width: '50px'}} onBlur={this.setSessionKey}/>}
+              {this.state.session ? null : <TextField hintText="session" style={{width: '50px'}} onBlur={this.setSessionKey}/>}
               <RaisedButton label="Join session" primary={true} onClick={this.joinSession} disabled={!this.state.user}/>
               <ToolbarSeparator style={{margin: '0 12px'}}/>
               <RaisedButton label="New session" secondary={true} onClick={this.createSession} disabled={!this.state.user}/>
@@ -127,7 +130,7 @@ class App extends Component {
 
 function mapStateToProps(state) {
   return {
-    session: (state.session && state.session.session) || '',
+    session: state.session && typeof state.session.session !== 'undefined' ? state.session.session : null,
     users: state.voteList.users || [],
     votes: state.voteList.votes || [],
     loading: state.isLoading,
@@ -141,6 +144,7 @@ function mapDispatchToProps(dispatch) {
     joinSession: (session, user) => dispatch(joinSession(session, user)),
     listVotes: (session) => dispatch(listVotes(session)),
     vote: (session, user, value) => dispatch(vote(session, user, value)),
+    onVote: () => dispatch(onVote()),
     clearSession: (session) => dispatch(clearSession(session)),
     setSnackbarState: (isVisible, message='') => dispatch(setSnackbarState(isVisible, message))
   }

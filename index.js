@@ -1,4 +1,4 @@
-const app = require('koa')()
+const app = require('koa.io')()
 app.use(require('koa-static')('./public/build'))
 const router = require('koa-router')()
 const send = require('koa-send')
@@ -14,18 +14,6 @@ router.get('/list_votes/:session', function *(next) {
 		this.body = {error: 404, description: 'No session found'}
 	else
 		this.body = session
-})
-
-router.post('/vote', function *(next) {
-	const { session, user, value } = this.request.body
-	const sessionObject = sessions[session]
-	if (sessionObject) {
-		const vote = sessionObject.votes.find(v => v.user === user)
-		if (vote)
-			sessionObject.votes.splice(sessionObject.votes.indexOf(vote), 1)
-		sessionObject.votes.push({user, value})
-		this.body = {status: 200}
-	}
 })
 
 router.post('/create_session', function *(next) {
@@ -48,6 +36,18 @@ router.post('/join_session', function *(next) {
 	this.body = {status: 200}
 })
 
+app.io.route('vote', function* (next, voteData) {
+	const { session, user, value } = voteData
+	const sessionObject = sessions[session]
+	if (sessionObject) {
+		const vote = sessionObject.votes.find(v => v.user === user)
+		if (vote)
+			sessionObject.votes.splice(sessionObject.votes.indexOf(vote), 1)
+		sessionObject.votes.push({user, value})
+		app.io.emit('vote', voteData)
+	}
+})
+
 app.on('error', err => console.error('server error', err))
 
 app
@@ -60,3 +60,7 @@ app
 		yield send(this, __dirname + '/index.html')
 	})
 	.listen(3001)
+
+app.io.use(function* (next) {
+  yield* next
+})
